@@ -20,32 +20,36 @@ RUN curl -sk https://raw.githubusercontent.com/torch/distro/master/install-deps 
 
 # Install python3 pip3
 RUN apt-get update
-RUN apt-get -y install python3
-RUN apt-get -y install python3-pip
-RUN pip3 install --upgrade pip
+RUN add-apt-repository ppa:deadsnakes/ppa
+RUN apt update
+RUN apt-get -y install python3.8
+RUN apt install -y python3.8-distutils
+RUN apt-get -y install python3-setuptools
+RUN python3.8 -m easy_install pip
 
 # Python packages we use (or used at one point...)
-RUN pip3 install numpy scipy pyyaml matplotlib
-RUN pip3 install imageio
-RUN pip3 install tensorboard-logger
-RUN pip3 install pygame
+RUN python3.8 -m pip install numpy scipy pyyaml matplotlib
+RUN python3.8 -m pip install imageio
+RUN python3.8 -m pip install tensorboard-logger
+RUN python3.8 -m pip install pygame
 
 RUN mkdir /install
 WORKDIR /install
 
-RUN pip3 install jsonpickle==0.9.6
+RUN python3.8 -m pip install jsonpickle==0.9.6
 # install Sacred (from OxWhirl fork)
-RUN pip3 install setuptools
-RUN git clone https://github.com/oxwhirl/sacred.git /install/sacred && cd /install/sacred && python3 setup.py install
+#RUN git clone https://github.com/oxwhirl/sacred.git /install/sacred && cd /install/sacred && python3.8 -m pip install .
+RUN python3.8 -m pip install  install sacred
 
 #### -------------------------------------------------------------------
 #### install pytorch
 #### -------------------------------------------------------------------
-RUN pip3 install torch
-RUN pip3 install torchvision snakeviz pytest probscale
+RUN python3.8 -m pip install torch
+RUN python3.8 -m pip install torchvision snakeviz pytest probscale
 
 ## -- SMAC
 RUN pip3 install git+https://github.com/oxwhirl/smac.git
 ENV SC2PATH /pymarl/3rdparty/StarCraftII
 
 WORKDIR /pymarl
+
