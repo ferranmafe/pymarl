@@ -53,9 +53,8 @@ class RNNAgent(nn.Module):
     def __combine_torch_tensors(tensor1, tensor2):
         output = torch.empty([tensor1.size()[0] * 2, tensor1.size()[1]])
         for i in range(tensor1.size()[0]):
-            for j in range(tensor1.size()[1]):
-                output[i * 2][j] = tensor1[i][j]
-                output[i * 2 + 1][j] = tensor2[i][j]
+            output[i * 2][:] = tensor1[i][:]
+            output[i * 2 + 1][:] = tensor2[i][:]
         return output
 
     @staticmethod
