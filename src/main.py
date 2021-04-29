@@ -14,8 +14,8 @@ import yaml
 from run import run
 
 print('Is cuda available: ', th.cuda.is_available())
-print('GPU Name: ', th.cuda.get_device_name(0))
-th.device('cuda')
+# print('GPU Name: ', th.cuda.get_device_name(0))
+# th.device('cuda')
 
 SETTINGS['CAPTURE_MODE'] = "fd" # set to "no" if you want to see stdout/stderr in console
 logger = get_logger()
