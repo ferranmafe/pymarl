@@ -51,8 +51,22 @@ class RNNAgent(nn.Module):
 
     @staticmethod
     def __decode_combined_output(tensor):
-        left_units = torch.max(tensor.view(3, 30, 30), dim=2).values
-        right_units = torch.max(tensor.view(3, 30, 30), dim=1).values
+        left_units = torch.max(
+            tensor.view(
+                tensor.size()[0],
+                int(math.sqrt(tensor.size()[1])),
+                int(math.sqrt(tensor.size()[1]))
+            ),
+            dim=2
+        ).values
+        right_units = torch.max(
+            tensor.view(
+                tensor.size()[0],
+                int(math.sqrt(tensor.size()[1])),
+                int(math.sqrt(tensor.size()[1]))
+            ),
+            dim=1
+        ).values
         return torch.stack((left_units, right_units), dim=2)\
             .view(tensor.size()[0] * 2, int(math.sqrt(tensor.size()[1])))
 
