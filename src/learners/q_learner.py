@@ -55,7 +55,7 @@ class QLearner:
         actions_per_pairs = actions.view(32, -1, 3, 2)
         q_actions_per_pairs = th.zeros((actions_per_pairs.size()[0], actions_per_pairs.size()[1], 3, 1), dtype=th.int64)
         if th.cuda.is_available():
-            q_actions_per_pairs.to(device='cuda:0')
+            q_actions_per_pairs = q_actions_per_pairs.to(device='cuda:0')
 
         for i in range(3):
             q_actions_per_pairs[:, :, i, :] = actions[:, :, 2 * i, :] + actions[:, :, 2 * i + 1, :]
@@ -75,7 +75,7 @@ class QLearner:
         # Mask out unavailable actions
         avail_actions_base = th.zeros((avail_actions.size()[0], avail_actions.size()[1], 3, 900))
         if th.cuda.is_available():
-            avail_actions_base.to(device='cuda:0')
+            avail_actions_base = avail_actions_base.to(device='cuda:0')
         for i in range(avail_actions.size()[0]):
             for j in range(avail_actions.size()[1]):
                 for k in range(3):
