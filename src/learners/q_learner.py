@@ -55,10 +55,9 @@ class QLearner:
         actions_per_pairs = actions.view(32, -1, 3, 2)
         if th.cuda.is_available():
             cuda = th.device('cuda')
-            q_actions_per_pairs = th.zeros((actions_per_pairs.size()[0], actions_per_pairs.size()[1], 3, 1), device=cuda)
+            q_actions_per_pairs = th.zeros((actions_per_pairs.size()[0], actions_per_pairs.size()[1], 3, 1), dtype=th.int64, device=cuda)
         else:
-            q_actions_per_pairs = th.zeros((actions_per_pairs.size()[0], actions_per_pairs.size()[1], 3, 1))
-
+            q_actions_per_pairs = th.zeros((actions_per_pairs.size()[0], actions_per_pairs.size()[1], 3, 1), dtype=th.int64)
 
         for i in range(3):
             q_actions_per_pairs[:, :, i, :] = actions[:, :, 2 * i, :] + actions[:, :, 2 * i + 1, :]

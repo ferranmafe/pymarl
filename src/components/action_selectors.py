@@ -77,11 +77,13 @@ class EpsilonGreedyActionSelector():
             picked_actions_final.append(math.floor(int(x) / 30))
             picked_actions_final.append(int(x) % 30)
 
+        """
         a = []
         for i in range(len(picked_actions_final)):
             a.append(int(avail_actions[:, i, picked_actions_final[i]]))
         r = sum(a)
-
+        """
+        
         return th.tensor(picked_actions_final).view(1, 6)
 
 
