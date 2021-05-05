@@ -52,7 +52,12 @@ class QLearner:
         mac_out = th.stack(mac_out, dim=1)  # Concat over time
 
         # Pick the Q-Values for the actions taken by each agent
-        chosen_action_qvals = th.gather(mac_out[:, :-1], dim=3, index=actions).squeeze(3)  # Remove the last dim
+        actions_per_pairs = actions.view(32, -1, 3, 2)
+        q_actions_per_pairs = th.zeros((actions_per_pairs.size()[0], actions_per_pairs.size()[1], 3, 1), dtype=th.int64)
+        for i in range(3):
+            q_actions_per_pairs[:, :, i, :] = actions[:, :, 2 * i, :] + actions[:, :, 2 * i + 1, :]
+
+        chosen_action_qvals = th.gather(mac_out[:, :-1], dim=3, index=q_actions_per_pairs).squeeze(3)  # Remove the last dim
 
         # Calculate the Q-Values necessary for the target
         target_mac_out = []
@@ -65,13 +70,19 @@ class QLearner:
         target_mac_out = th.stack(target_mac_out[1:], dim=1)  # Concat across time
 
         # Mask out unavailable actions
-        target_mac_out[avail_actions[:, 1:] == 0] = -9999999
+        avail_actions_base = th.zeros((avail_actions.size()[0], avail_actions.size()[1], 3, 900))
+        for i in range(avail_actions.size()[0]):
+            for j in range(avail_actions.size()[1]):
+                for k in range(3):
+                    avail_actions_aux = th.cartesian_prod(avail_actions[i, j, 2 * k, :].view(-1), avail_actions[i, j, 2 * k + 1, :].view(-1))
+                    avail_actions_base[i, j, k, :] = avail_actions_aux[:, 0].mul(avail_actions_aux[:, 1])
+        target_mac_out[avail_actions_base[:, 1:] == 0] = -9999999
 
         # Max over target Q-Values
         if self.args.double_q:
             # Get actions that maximise live Q (for double q-learning)
             mac_out_detach = mac_out.clone().detach()
-            mac_out_detach[avail_actions == 0] = -9999999
+            mac_out_detach[avail_actions_base == 0] = -9999999
             cur_max_actions = mac_out_detach[:, 1:].max(dim=3, keepdim=True)[1]
             target_max_qvals = th.gather(target_mac_out, 3, cur_max_actions).squeeze(3)
         else:

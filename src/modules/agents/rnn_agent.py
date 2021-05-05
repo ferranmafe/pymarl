@@ -41,7 +41,7 @@ class RNNAgent(nn.Module):
             h_in = hidden_state.reshape(-1, self.args.rnn_hidden_dim * 2)
             h = self.rnn(x, h_in)
             q = self.fc2(h)
-            return self.__decode_combined_output(q), h
+            return q, h
         else:
             x = F.relu(self.fc1(inputs))
             h_in = hidden_state.reshape(-1, self.args.rnn_hidden_dim)
