@@ -54,15 +54,29 @@ class EpsilonGreedyActionSelector():
         # mask actions that are excluded from selection
         masked_q_values = agent_inputs.clone()
 
-        if th.cuda.is_available():
-            cuda = th.device('cuda')
-            avail_actions_base = th.zeros((1, 3, 900), device=cuda)
-        else:
-            avail_actions_base = th.zeros((1, 3, 900))
+        if self.args.agent_type == '2_units_combined_output_all_pipeline':
+            if th.cuda.is_available():
+                cuda = th.device('cuda')
+                avail_actions_base = th.zeros(
+                    (avail_actions.size()[0],
+                     int(avail_actions.size()[1] / 2),
+                     int(avail_actions.size()[2] ** 2)),
+                    device=cuda
+                )
+            else:
+                avail_actions_base = th.zeros(
+                    (avail_actions.size()[0],
+                     int(avail_actions.size()[1] / 2),
+                     int(avail_actions.size()[2] ** 2))
+                )
 
-        for i in range(3):
-            avail_actions_aux = th.cartesian_prod(avail_actions[:, 2 * i, :].view(-1), avail_actions[:, 2 * i + 1, :].view(-1))
-            avail_actions_base[:, i, :] = avail_actions_aux[:, 0].mul(avail_actions_aux[:, 1])
+            for i in range(int(avail_actions.size()[1] / 2)):
+                avail_actions_aux = th.cartesian_prod(avail_actions[:, 2 * i, :].view(-1),
+                                                      avail_actions[:, 2 * i + 1, :].view(-1))
+                avail_actions_base[:, i, :] = avail_actions_aux[:, 0].mul(avail_actions_aux[:, 1])
+        else:
+            avail_actions_base = avail_actions.copy()
+
         masked_q_values[avail_actions_base == 0.0] = -float("inf")  # should never be selected!
 
         random_numbers = th.rand_like(agent_inputs[:, :, 0])
@@ -70,21 +84,15 @@ class EpsilonGreedyActionSelector():
         random_actions = Categorical(avail_actions_base.float()).sample().long()
 
         picked_actions = pick_random * random_actions + (1 - pick_random) * masked_q_values.max(dim=2)[1]
-        # return picked_actions
+        if self.args.agent_type == '2_units_combined_output_all_pipeline':
+            picked_actions_final = []
+            for x in list(picked_actions.view(-1)):
+                picked_actions_final.append(math.floor(int(x) / avail_actions.size()[2]))
+                picked_actions_final.append(int(x) % avail_actions.size()[2])
 
-        picked_actions_final = []
-        for x in list(picked_actions.view(-1)):
-            picked_actions_final.append(math.floor(int(x) / 30))
-            picked_actions_final.append(int(x) % 30)
-
-        """
-        a = []
-        for i in range(len(picked_actions_final)):
-            a.append(int(avail_actions[:, i, picked_actions_final[i]]))
-        r = sum(a)
-        """
-        
-        return th.tensor(picked_actions_final).view(1, 6)
+            return th.tensor(picked_actions_final).view(1, avail_actions.size()[1])
+        else:
+            return picked_actions
 
 
 REGISTRY["epsilon_greedy"] = EpsilonGreedyActionSelector

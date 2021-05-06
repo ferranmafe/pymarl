@@ -15,7 +15,8 @@ class RNNAgent(nn.Module):
             self.rnn = nn.GRUCell(args.rnn_hidden_dim * 2, args.rnn_hidden_dim * 2)
             self.fc21 = nn.Linear(args.rnn_hidden_dim * 2, args.n_actions)
             self.fc22 = nn.Linear(args.rnn_hidden_dim * 2, args.n_actions)
-        elif self.args.agent_type == '2_units_combined_output':
+        elif (self.args.agent_type == '2_units_combined_output' or
+              self.args.agent_type == '2_units_combined_output_all_pipeline'):
             self.fc1 = nn.Linear(input_shape * 2, args.rnn_hidden_dim * 2)
             self.rnn = nn.GRUCell(args.rnn_hidden_dim * 2, args.rnn_hidden_dim * 2)
             self.fc2 = nn.Linear(args.rnn_hidden_dim * 2, args.n_actions ** 2)
@@ -36,12 +37,16 @@ class RNNAgent(nn.Module):
             q1 = self.fc21(h)
             q2 = self.fc22(h)
             return torch.stack((q1, q2), dim=2).view(q1.size()[0] * 2, q1.size()[1]), h
-        elif self.args.agent_type == '2_units_combined_output':
+        elif (self.args.agent_type == '2_units_combined_output' or
+              self.args.agent_type == '2_units_combined_output_all_pipeline'):
             x = F.relu(self.fc1(inputs.view(-1, self.input_shape * 2)))
             h_in = hidden_state.reshape(-1, self.args.rnn_hidden_dim * 2)
             h = self.rnn(x, h_in)
             q = self.fc2(h)
-            return q, h
+            if self.args.agent_type == '2_units_combined_output':
+                return self.__decode_combined_output(q), h
+            else:
+                return q, h
         else:
             x = F.relu(self.fc1(inputs))
             h_in = hidden_state.reshape(-1, self.args.rnn_hidden_dim)

@@ -9,7 +9,10 @@ class QMixer(nn.Module):
         super(QMixer, self).__init__()
 
         self.args = args
-        self.n_agents = args.n_agents
+        if self.args.agent_type == '2_units_combined_output_all_pipeline':
+            self.n_agents = int(args.n_agents / 2)
+        else:
+            self.n_agents = args.n_agents
         self.state_dim = int(np.prod(args.state_shape))
 
         self.embed_dim = args.mixing_embed_dim
@@ -41,12 +44,12 @@ class QMixer(nn.Module):
     def forward(self, agent_qs, states):
         bs = agent_qs.size(0)
         states = states.reshape(-1, self.state_dim)
-        agent_qs = agent_qs.view(-1, 1, 3)
-        agent_qs = th.stack((agent_qs, agent_qs), dim=3).view(agent_qs.size()[0], agent_qs.size()[1], 6)
+        agent_qs = agent_qs.view(-1, 1, self.n_agents)
+        # agent_qs = th.stack((agent_qs, agent_qs), dim=3).view(agent_qs.size()[0], agent_qs.size()[1], 6)
         # First layer
         w1 = th.abs(self.hyper_w_1(states))
         b1 = self.hyper_b_1(states)
-        w1 = w1.view(-1, 6, self.embed_dim)
+        w1 = w1.view(-1, self.n_agents, self.embed_dim)
         b1 = b1.view(-1, 1, self.embed_dim)
         hidden = F.elu(th.bmm(agent_qs, w1) + b1)
         # Second layer

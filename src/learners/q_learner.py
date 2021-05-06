@@ -52,17 +52,20 @@ class QLearner:
         mac_out = th.stack(mac_out, dim=1)  # Concat over time
 
         # Pick the Q-Values for the actions taken by each agent
-        actions_per_pairs = actions.view(32, -1, 3, 2)
-        if th.cuda.is_available():
-            cuda = th.device('cuda')
-            q_actions_per_pairs = th.zeros((actions_per_pairs.size()[0], actions_per_pairs.size()[1], 3, 1), dtype=th.int64, device=cuda)
+        if self.args.agent_type == '2_units_combined_output_all_pipeline':
+            actions_per_pairs = actions.view(actions.size()[0], -1, int(actions.size()[2] / 2), 2)
+            if th.cuda.is_available():
+                cuda = th.device('cuda')
+                q_actions_per_pairs = th.zeros((actions_per_pairs.size()[0], actions_per_pairs.size()[1], int(actions.size()[2] / 2), 1), dtype=th.int64, device=cuda)
+            else:
+                q_actions_per_pairs = th.zeros((actions_per_pairs.size()[0], actions_per_pairs.size()[1], int(actions.size()[2] / 2), 1), dtype=th.int64)
+
+            for i in range(int(actions.size()[2] / 2)):
+                q_actions_per_pairs[:, :, i, :] = actions[:, :, 2 * i, :] + actions[:, :, 2 * i + 1, :]
+
+            chosen_action_qvals = th.gather(mac_out[:, :-1], dim=3, index=q_actions_per_pairs).squeeze(3)  # Remove the last dim
         else:
-            q_actions_per_pairs = th.zeros((actions_per_pairs.size()[0], actions_per_pairs.size()[1], 3, 1), dtype=th.int64)
-
-        for i in range(3):
-            q_actions_per_pairs[:, :, i, :] = actions[:, :, 2 * i, :] + actions[:, :, 2 * i + 1, :]
-
-        chosen_action_qvals = th.gather(mac_out[:, :-1], dim=3, index=q_actions_per_pairs).squeeze(3)  # Remove the last dim
+            chosen_action_qvals = th.gather(mac_out[:, :-1], dim=3, index=actions).squeeze(3)  # Remove the last dim
 
         # Calculate the Q-Values necessary for the target
         target_mac_out = []
@@ -75,17 +78,32 @@ class QLearner:
         target_mac_out = th.stack(target_mac_out[1:], dim=1)  # Concat across time
 
         # Mask out unavailable actions
-        if th.cuda.is_available():
-            cuda = th.device('cuda')
-            avail_actions_base = th.zeros((avail_actions.size()[0], avail_actions.size()[1], 3, 900), device=cuda)
-        else:
-            avail_actions_base = th.zeros((avail_actions.size()[0], avail_actions.size()[1], 3, 900))
+        if self.args.agent_type == '2_units_combined_output_all_pipeline':
+            if th.cuda.is_available():
+                cuda = th.device('cuda')
+                avail_actions_base = th.zeros(
+                    (avail_actions.size()[0],
+                     avail_actions.size()[1],
+                     int(avail_actions.size()[2] / 2),
+                     int(avail_actions.size()[3] ** 2)),
+                    device=cuda
+                )
+            else:
+                avail_actions_base = th.zeros(
+                    (avail_actions.size()[0],
+                     avail_actions.size()[1],
+                     int(avail_actions.size()[2] / 2),
+                     int(avail_actions.size()[3] ** 2))
+                )
 
-        for i in range(avail_actions.size()[0]):
-            for j in range(avail_actions.size()[1]):
-                for k in range(3):
-                    avail_actions_aux = th.cartesian_prod(avail_actions[i, j, 2 * k, :].view(-1), avail_actions[i, j, 2 * k + 1, :].view(-1))
-                    avail_actions_base[i, j, k, :] = avail_actions_aux[:, 0].mul(avail_actions_aux[:, 1])
+            for i in range(avail_actions.size()[0]):
+                for j in range(avail_actions.size()[1]):
+                    for k in range(3):
+                        avail_actions_aux = th.cartesian_prod(avail_actions[i, j, 2 * k, :].view(-1), avail_actions[i, j, 2 * k + 1, :].view(-1))
+                        avail_actions_base[i, j, k, :] = avail_actions_aux[:, 0].mul(avail_actions_aux[:, 1])
+        else:
+            avail_actions_base = avail_actions.copy()
+            
         target_mac_out[avail_actions_base[:, 1:] == 0] = -9999999
 
         # Max over target Q-Values
