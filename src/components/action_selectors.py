@@ -75,7 +75,7 @@ class EpsilonGreedyActionSelector():
                                                       avail_actions[:, 2 * i + 1, :].view(-1))
                 avail_actions_base[:, i, :] = avail_actions_aux[:, 0].mul(avail_actions_aux[:, 1])
         else:
-            avail_actions_base = avail_actions.copy()
+            avail_actions_base = avail_actions.detach().clone()
 
         masked_q_values[avail_actions_base == 0.0] = -float("inf")  # should never be selected!
 

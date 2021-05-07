@@ -102,7 +102,7 @@ class QLearner:
                         avail_actions_aux = th.cartesian_prod(avail_actions[i, j, 2 * k, :].view(-1), avail_actions[i, j, 2 * k + 1, :].view(-1))
                         avail_actions_base[i, j, k, :] = avail_actions_aux[:, 0].mul(avail_actions_aux[:, 1])
         else:
-            avail_actions_base = avail_actions.copy()
+            avail_actions_base = avail_actions.detach().clone()
             
         target_mac_out[avail_actions_base[:, 1:] == 0] = -9999999
 
