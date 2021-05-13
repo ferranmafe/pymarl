@@ -49,8 +49,8 @@ class RNNAgent(nn.Module):
             return torch.stack((q1, q2), dim=2).view(q1.size()[0] * 2, q1.size()[1]), h
 
         elif self.args.agent_type == '2_units_combined_output':
-            inputs = inputs.view(-1, self.input_shape)
-            hidden_state = hidden_state.reshape(-1, self.args.rnn_hidden_dim)
+            inputs = inputs.view(self.args.n_agents, self.input_shape, -1)
+            hidden_state = hidden_state.reshape(self.args.n_agents, self.args.rnn_hidden_dim, -1)
             qp = None
             qi = None
 
@@ -59,24 +59,25 @@ class RNNAgent(nn.Module):
                 if n_pairs > int(self.args.n_agents / 2):
                     n_pairs = int(self.args.n_agents / 2)
 
-                pairs_inputs = inputs[:n_pairs * 2, :]
+                pairs_inputs = inputs[:n_pairs * 2, :, :]
                 pairs_inputs = pairs_inputs.view(-1, self.input_shape * 2)
 
-                pairs_hidden_state = hidden_state[:n_pairs * 2, :]
+                pairs_hidden_state = hidden_state[:n_pairs * 2, :, :]
+                h_in = pairs_hidden_state.reshape(-1, self.args.rnn_hidden_dim * 2)
 
                 x = F.relu(self.fc11(pairs_inputs))
-                h_in = pairs_hidden_state.reshape(-1, self.args.rnn_hidden_dim * 2)
                 hp = self.rnn1(x, h_in)
                 qp = self.fc12(hp)
 
             if self.args.n_agent_pairs < int(self.args.n_agents / 2):
                 n_individuals = self.args.n_agents - 2 * self.args.n_agent_pairs
-                individual_inputs = inputs[n_individuals:, :]
+                individual_inputs = inputs[-n_individuals:, :, :]
+                individual_inputs = individual_inputs.view(-1, self.input_shape)
 
-                individual_hidden_state = hidden_state[n_individuals:, :]
+                individual_hidden_state = hidden_state[-n_individuals:, :, :]
+                h_in = individual_hidden_state.reshape(-1, self.args.rnn_hidden_dim)
 
                 x = F.relu(self.fc21(individual_inputs))
-                h_in = individual_hidden_state.reshape(-1, self.args.rnn_hidden_dim)
                 hi = self.rnn2(x, h_in)
                 qi = self.fc22(hi)
 
