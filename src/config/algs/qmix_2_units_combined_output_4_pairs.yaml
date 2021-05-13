@@ -15,7 +15,8 @@ target_update_interval: 200
 
 # use the Q_Learner to train
 agent_output_type: "q"
-agent_type: "2_units"
+agent_type: "2_units_combined_output"
+n_agent_pairs: 2
 learner: "q_learner"
 double_q: True
 mixer: "qmix"

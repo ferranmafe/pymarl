@@ -9,10 +9,7 @@ class QMixer(nn.Module):
         super(QMixer, self).__init__()
 
         self.args = args
-        if self.args.agent_type == '2_units_combined_output_all_pipeline':
-            self.n_agents = int(args.n_agents / 2)
-        else:
-            self.n_agents = args.n_agents
+        self.n_agents = args.n_agents
         self.state_dim = int(np.prod(args.state_shape))
 
         self.embed_dim = args.mixing_embed_dim

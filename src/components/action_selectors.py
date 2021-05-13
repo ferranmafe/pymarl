@@ -54,28 +54,7 @@ class EpsilonGreedyActionSelector():
         # mask actions that are excluded from selection
         masked_q_values = agent_inputs.clone()
 
-        if self.args.agent_type == '2_units_combined_output_all_pipeline':
-            if th.cuda.is_available():
-                cuda = th.device('cuda')
-                avail_actions_base = th.zeros(
-                    (avail_actions.size()[0],
-                     int(avail_actions.size()[1] / 2),
-                     int(avail_actions.size()[2] ** 2)),
-                    device=cuda
-                )
-            else:
-                avail_actions_base = th.zeros(
-                    (avail_actions.size()[0],
-                     int(avail_actions.size()[1] / 2),
-                     int(avail_actions.size()[2] ** 2))
-                )
-
-            for i in range(int(avail_actions.size()[1] / 2)):
-                avail_actions_aux = th.cartesian_prod(avail_actions[:, 2 * i, :].view(-1),
-                                                      avail_actions[:, 2 * i + 1, :].view(-1))
-                avail_actions_base[:, i, :] = avail_actions_aux[:, 0].mul(avail_actions_aux[:, 1])
-        else:
-            avail_actions_base = avail_actions.detach().clone()
+        avail_actions_base = avail_actions.detach().clone()
 
         masked_q_values[avail_actions_base == 0.0] = -float("inf")  # should never be selected!
 
