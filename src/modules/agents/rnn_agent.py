@@ -32,10 +32,13 @@ class RNNAgent(nn.Module):
     def init_hidden(self):
         # make hidden states on same device as model
         if self.args.agent_type == "2_units_combined_output":
-            if self.args.n_agent_pairs > 0:
+            if 0 < self.args.n_agent_pairs < int(self.args.n_agents / 2):
+                self.fc21.weight.new(1, self.args.rnn_hidden_dim * 2).zero_()
                 return self.fc11.weight.new(1, self.args.rnn_hidden_dim).zero_()
-            if self.args.n_agent_pairs < int(self.args.n_agents / 2):
+            elif self.args.n_agent_pairs < int(self.args.n_agents / 2):
                 return self.fc21.weight.new(1, self.args.rnn_hidden_dim).zero_()
+            else:
+                return self.fc11.weight.new(1, self.args.rnn_hidden_dim).zero_()
         else:
             return self.fc1.weight.new(1, self.args.rnn_hidden_dim).zero_()
 
