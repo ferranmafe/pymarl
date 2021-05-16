@@ -31,14 +31,14 @@ class RNNAgent(nn.Module):
 
     def init_hidden(self):
         # make hidden states on same device as model
+        w_p = None
+        w_i = None
         if self.args.agent_type == "2_units_combined_output":
-            if 0 < self.args.n_agent_pairs < int(self.args.n_agents / 2):
-                self.fc21.weight.new(1, self.args.rnn_hidden_dim * 2).zero_()
-                return self.fc11.weight.new(1, self.args.rnn_hidden_dim).zero_()
-            elif self.args.n_agent_pairs < int(self.args.n_agents / 2):
-                return self.fc21.weight.new(1, self.args.rnn_hidden_dim).zero_()
-            else:
-                return self.fc11.weight.new(1, self.args.rnn_hidden_dim).zero_()
+            if self.args.n_agent_pairs < int(self.args.n_agents / 2):
+                w_p = self.fc21.weight.new(1, self.args.rnn_hidden_dim * 2).zero_()
+            if 0 < self.args.n_agent_pairs:
+                w_i = self.fc11.weight.new(1, self.args.rnn_hidden_dim).zero_()
+            return w_p, w_i
         else:
             return self.fc1.weight.new(1, self.args.rnn_hidden_dim).zero_()
 
@@ -53,9 +53,12 @@ class RNNAgent(nn.Module):
 
         elif self.args.agent_type == '2_units_combined_output':
             inputs = inputs.view(self.args.n_agents, self.input_shape, -1)
-            hidden_state = hidden_state.reshape(self.args.n_agents, self.args.rnn_hidden_dim, -1)
+            pairs_hidden_state, individual_hidden_state = hidden_state
+
             qp = None
             qi = None
+            hp = None
+            hi = None
 
             if self.args.n_agent_pairs > 0:
                 n_pairs = self.args.n_agent_pairs
@@ -65,7 +68,7 @@ class RNNAgent(nn.Module):
                 pairs_inputs = inputs[:n_pairs * 2, :, :]
                 pairs_inputs = pairs_inputs.view(-1, self.input_shape * 2)
 
-                pairs_hidden_state = hidden_state[:n_pairs * 2, :, :]
+                # pairs_hidden_state = hidden_state[:n_pairs * 2, :, :]
                 h_in = pairs_hidden_state.reshape(-1, self.args.rnn_hidden_dim * 2)
 
                 x = F.relu(self.fc11(pairs_inputs))
@@ -77,7 +80,7 @@ class RNNAgent(nn.Module):
                 individual_inputs = inputs[-n_individuals:, :, :]
                 individual_inputs = individual_inputs.view(-1, self.input_shape)
 
-                individual_hidden_state = hidden_state[-n_individuals:, :, :]
+                # individual_hidden_state = hidden_state[-n_individuals:, :, :]
                 h_in = individual_hidden_state.reshape(-1, self.args.rnn_hidden_dim)
 
                 x = F.relu(self.fc21(individual_inputs))
@@ -85,11 +88,11 @@ class RNNAgent(nn.Module):
                 qi = self.fc22(hi)
 
             if qp is not None and qi is not None:
-                return torch.cat((self.__decode_combined_output(qp), qi), 0), torch.cat((hp.view(hp.size()[0] * 2, -1), hi), 0)
+                return torch.cat((self.__decode_combined_output(qp), qi), 0), (hp, hi)
             elif qp is not None:
-                return self.__decode_combined_output(qp), hp.view(hp.size()[0] * 2, -1)
+                return self.__decode_combined_output(qp), (hp, hi)
             else:
-                return qi, hi
+                return qi, (hi, hp)
 
         else:
             x = F.relu(self.fc1(inputs))

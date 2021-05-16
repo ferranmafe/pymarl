@@ -54,7 +54,20 @@ class BasicMAC:
         return agent_outs.view(ep_batch.batch_size, self.n_agents, -1)
 
     def init_hidden(self, batch_size):
-        self.hidden_states = self.agent.init_hidden().unsqueeze(0).expand(batch_size, self.n_agents, -1)  # bav
+        hidden_states = self.agent.init_hidden()
+        if self.args.agent_type == '2_units_combined_output':
+            pairs_hidden_states, individual_hidden_states = hidden_states
+            if self.args.n_agent_pairs > 0:
+                n_pairs = self.args.n_agent_pairs
+                if n_pairs > int(self.args.n_agents / 2):
+                    n_pairs = int(self.args.n_agents / 2)
+                pairs_hidden_states = pairs_hidden_states.unsqueeze(0).expand(batch_size, n_pairs, -1)
+            if self.args.n_agent_pairs < int(self.args.n_agents / 2):
+                n_individuals = self.args.n_agents - 2 * self.args.n_agent_pairs
+                individual_hidden_states = individual_hidden_states.unsqueeze(0).expand(batch_size, n_individuals, -1)
+            self.hidden_states = (pairs_hidden_states, individual_hidden_states)
+        else:
+            self.hidden_states = hidden_states.unsqueeze(0).expand(batch_size, self.n_agents, -1)  # bav
 
     def parameters(self):
         return self.agent.parameters()
