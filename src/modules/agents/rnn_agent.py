@@ -44,7 +44,7 @@ class RNNAgent(nn.Module):
             return torch.stack((q1, q2), dim=2).view(q1.size()[0] * 2, q1.size()[1]), h
         elif self.args.agent_type == '2_units_combined_output':
             individual_inputs = inputs[:, :self.args.n_agents - 2, :]
-            individual_inputs = individual_inputs.view(-1, self.input_shape)
+            individual_inputs = individual_inputs.reshape(-1, self.input_shape)
 
             x = F.relu(self.fc11(individual_inputs))
             h_in = hidden_state[0].reshape(-1, self.args.rnn_hidden_dim)
@@ -52,7 +52,7 @@ class RNNAgent(nn.Module):
             q_ind = self.fc12(h_ind)
 
             pairs_inputs = inputs[:, self.args.n_agents - 2:, :]
-            pairs_inputs = pairs_inputs.view(-1, self.input_shape * 2)
+            pairs_inputs = pairs_inputs.reshape(-1, self.input_shape * 2)
 
             x = F.relu(self.fc21(pairs_inputs))
             h_in = hidden_state[1].reshape(-1, self.args.rnn_hidden_dim * 2)
