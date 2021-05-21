@@ -46,16 +46,16 @@ class RNNAgent(nn.Module):
             h_in = hidden_state[0].reshape(-1, self.args.rnn_hidden_dim)
             hi = self.rnn1(x, h_in)
             qi = self.fc12(hi)
-            qi = qi.view(-1, self.args.n_agents, qi.size()[1])[:, :self.args.n_agents - 2, :]
+            qi = qi.view(self.args.n_agents, -1, qi.size()[1])[:self.args.n_agents - 2, :, :]
             
             x = F.relu(self.fc21(inputs.view(-1, self.input_shape * 2)))
             h_in = hidden_state[1].reshape(-1, self.args.rnn_hidden_dim * 2)
             hp = self.rnn2(x, h_in)
             qp = self.fc22(hp)
             qp = self.__decode_combined_output(qp)
-            qp = qp.view(-1, self.args.n_agents, qp.size()[1])[:, self.args.n_agents - 2:, :]
+            qp = qp.view(self.args.n_agents, -1, qp.size()[1])[self.args.n_agents - 2:, :, :]
 
-            qip = torch.cat((qi, qp), dim=1)
+            qip = torch.cat((qi, qp), dim=0)
             return qip.view(qip.size()[0] * qip.size()[1], -1), (hi, hp)
         else:
             x = F.relu(self.fc1(inputs))
