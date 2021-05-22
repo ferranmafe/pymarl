@@ -13,6 +13,7 @@ class RNNAgentPairs(nn.Module):
         self.fc1 = nn.Linear(input_shape * 2, args.rnn_hidden_dim * 2)
         self.rnn = nn.GRUCell(args.rnn_hidden_dim * 2, args.rnn_hidden_dim * 2)
         self.fc2 = nn.Linear(args.rnn_hidden_dim * 2, args.n_actions ** 2)
+        self.fc3 = DecodeCombinationLayer()
 
     def init_hidden(self):
         # make hidden states on same device as model
@@ -23,12 +24,16 @@ class RNNAgentPairs(nn.Module):
         h_in = hidden_state.reshape(-1, self.args.rnn_hidden_dim * 2)
         hp = self.rnn(x, h_in)
         qp = self.fc2(hp)
-        qp = self.__decode_combined_output(qp)
+        qp = self.fc3(qp)
 
         return qp, hp
 
-    @staticmethod
-    def __decode_combined_output(tensor):
+
+class DecodeCombinationLayer(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, tensor):
         left_units = torch.max(
             tensor.view(
                 tensor.size()[0],
@@ -45,6 +50,5 @@ class RNNAgentPairs(nn.Module):
             ),
             dim=1
         ).values
-        return torch.stack((left_units, right_units), dim=2)\
+        return torch.stack((left_units, right_units), dim=2) \
             .view(tensor.size()[0] * 2, int(math.sqrt(tensor.size()[1])))
-
