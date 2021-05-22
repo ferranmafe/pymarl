@@ -25,7 +25,7 @@ class RNNAgentPairs(nn.Module):
         qp = self.fc2(hp)
         qp = self.__decode_combined_output(qp)
 
-        return self.__decode_combined_output(qp), hp
+        return qp, hp
 
     @staticmethod
     def __decode_combined_output(tensor):

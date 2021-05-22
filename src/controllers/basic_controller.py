@@ -30,7 +30,7 @@ class BasicMAC:
         agent_inputs_ind, agent_inputs_pairs = self._build_inputs(ep_batch, t)
         avail_actions = ep_batch["avail_actions"][:, t]
         agent_outs_ind, self.hidden_states_ind = self.agent_ind(agent_inputs_ind, self.hidden_states_ind)
-        agent_outs_pairs, self.hidden_states_pairs = self.agent_ind(agent_inputs_pairs, self.hidden_states_pairs)
+        agent_outs_pairs, self.hidden_states_pairs = self.agent_pairs(agent_inputs_pairs, self.hidden_states_pairs)
 
         agent_outs = th.cat((agent_outs_ind, agent_outs_pairs), dim=0)
         agent_outs = agent_outs.view(ep_batch.batch_size * self.n_agents, -1)
