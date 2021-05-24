@@ -61,7 +61,7 @@ class BasicMAC:
 
     def init_hidden(self, batch_size):
         self.hidden_states_ind = self.agent_ind.init_hidden().unsqueeze(0).expand(batch_size, self.n_agents - 4, -1)
-        self.hidden_states_pairs = self.agent_pairs.init_hidden().unsqueeze(0).expand(batch_size, 2, -1)
+        self.hidden_states_pairs = self.agent_pairs.init_hidden().unsqueeze(0).expand(batch_size, 4, -1)
 
     def parameters(self):
         return self.agent_ind.parameters(), self.agent_pairs.parameters()
@@ -86,7 +86,7 @@ class BasicMAC:
 
     def _build_agents(self, input_shape):
         self.agent_ind = RNNAgentInd(input_shape, self.args)
-        self.agent_pairs = RNNAgentPairs(input_shape, self.args)
+        self.agent_pairs = RNNAgentInd(input_shape, self.args)
 
     def _build_inputs(self, batch, t):
         # Assumes homogenous agents with flat observations.
