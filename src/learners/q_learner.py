@@ -12,7 +12,7 @@ class QLearner:
         self.mac = mac
         self.logger = logger
 
-        self.params = list(mac.parameters()[0]) + list(mac.parameters()[1])
+        self.params = list(mac.parameters())
 
         self.last_target_update_episode = 0
 

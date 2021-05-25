@@ -10,59 +10,47 @@ class RNNAgent(nn.Module):
         self.args = args
         self.input_shape = input_shape
 
-        if self.args.agent_type == '2_units':
-            self.fc1 = nn.Linear(input_shape * 2, args.rnn_hidden_dim * 2)
-            self.rnn = nn.GRUCell(args.rnn_hidden_dim * 2, args.rnn_hidden_dim * 2)
-            self.fc21 = nn.Linear(args.rnn_hidden_dim * 2, args.n_actions)
-            self.fc22 = nn.Linear(args.rnn_hidden_dim * 2, args.n_actions)
-        elif self.args.agent_type == '2_units_combined_output':
-            self.fc11 = nn.Linear(input_shape, args.rnn_hidden_dim)
-            self.rnn1 = nn.GRUCell(args.rnn_hidden_dim, args.rnn_hidden_dim)
-            self.fc12 = nn.Linear(args.rnn_hidden_dim, args.n_actions)
-
-            self.fc21 = nn.Linear(input_shape * 2, args.rnn_hidden_dim * 2)
-            self.rnn2 = nn.GRUCell(args.rnn_hidden_dim * 2, args.rnn_hidden_dim * 2)
-            self.fc22 = nn.Linear(args.rnn_hidden_dim * 2, args.n_actions ** 2)
-        else:
-            self.fc1 = nn.Linear(input_shape, args.rnn_hidden_dim)
-            self.rnn = nn.GRUCell(args.rnn_hidden_dim, args.rnn_hidden_dim)
-            self.fc2 = nn.Linear(args.rnn_hidden_dim, args.n_actions)
+        self.fc1 = nn.Linear(input_shape * 2, args.rnn_hidden_dim * 2)
+        self.rnn = nn.GRUCell(args.rnn_hidden_dim * 2, args.rnn_hidden_dim * 2)
+        self.fc2 = nn.Linear(args.rnn_hidden_dim * 2, args.n_actions ** 2)
 
     def init_hidden(self):
         # make hidden states on same device as model
-        return self.fc11.weight.new(1, self.args.rnn_hidden_dim).zero_(),\
-               self.fc21.weight.new(1, self.args.rnn_hidden_dim).zero_()
+        return self.fc1.weight.new(1, self.args.rnn_hidden_dim * 2).zero_()
 
     def forward(self, inputs, hidden_state):
-        if self.args.agent_type == '2_units':
-            x = F.relu(self.fc1(inputs.view(-1, self.input_shape * 2)))
-            h_in = hidden_state.reshape(-1, self.args.rnn_hidden_dim * 2)
-            h = self.rnn(x, h_in)
-            q1 = self.fc21(h)
-            q2 = self.fc22(h)
-            return torch.stack((q1, q2), dim=2).view(q1.size()[0] * 2, q1.size()[1]), h
-        elif self.args.agent_type == '2_units_combined_output':
-            x = F.relu(self.fc11(inputs))
-            h_in = hidden_state[0].reshape(-1, self.args.rnn_hidden_dim)
-            hi = self.rnn1(x, h_in)
-            qi = self.fc12(hi)
-            qi = qi.view(self.args.n_agents, -1, qi.size()[1])[:self.args.n_agents - 2, :, :]
-            
-            x = F.relu(self.fc21(inputs.view(-1, self.input_shape * 2)))
-            h_in = hidden_state[1].reshape(-1, self.args.rnn_hidden_dim * 2)
-            hp = self.rnn2(x, h_in)
-            qp = self.fc22(hp)
-            qp = self.__decode_combined_output(qp)
-            qp = qp.view(self.args.n_agents, -1, qp.size()[1])[self.args.n_agents - 2:, :, :]
+        inputs = torch.stack((inputs[:, :-1, :], inputs[:, 1:, :]), dim=1) \
+            .view(-1, self.args.n_agents - 1, self.input_shape * 2).view(-1, self.input_shape * 2)
 
-            qip = torch.cat((qi, qp), dim=0)
-            return qip.view(qip.size()[0] * qip.size()[1], -1), (hi, hp)
-        else:
-            x = F.relu(self.fc1(inputs))
-            h_in = hidden_state.reshape(-1, self.args.rnn_hidden_dim)
-            h = self.rnn(x, h_in)
-            q = self.fc2(h)
-            return q, h
+        x = F.relu(self.fc1(inputs))
+        h_in = hidden_state.reshape(-1, self.args.rnn_hidden_dim * 2)
+        hp = self.rnn(x, h_in)
+        qp = self.fc2(hp)
+        qp = self.__decode_combined_output(qp)
+        qp = self.__get_max_values_from_decoded_output(qp)
+
+        return qp, hp
+
+    def __get_max_values_from_decoded_output(self, tensor):
+        bs = math.floor(int(int(tensor.size()[0] / 2) / (self.args.n_agents - 1)))
+
+        partial_tensor = tensor.view(-1, self.args.n_agents - 1, tensor.size()[1])
+        left_dimensions = partial_tensor[0, 1:, :]
+        right_dimensions = partial_tensor[1, :-1, :]
+        mixed_dimensions = torch.stack((left_dimensions, right_dimensions), dim=0)
+
+        final_tensor = torch.zeros((bs, self.args.n_agents, tensor.size()[1]))
+        for i in range(bs):
+            final_tensor[i, 0, :] = partial_tensor[i, 0, :]
+            final_tensor[i, -1, :] = partial_tensor[i, -1, :]
+
+            for j in range(mixed_dimensions.size()[1]):
+                if torch.max(mixed_dimensions[0, j, :]) > torch.max(mixed_dimensions[1, j, :]):
+                    final_tensor[i, j + 1, :] = mixed_dimensions[0, j, :]
+                else:
+                    final_tensor[i, j + 1, :] = mixed_dimensions[1, j, :]
+
+        return final_tensor
 
     @staticmethod
     def __decode_combined_output(tensor):

@@ -1,6 +1,4 @@
 from modules.agents import REGISTRY as agent_REGISTRY
-from modules.agents.rnn_agent_ind import RNNAgentInd
-from modules.agents.rnn_agent_pairs import RNNAgentPairs
 from components.action_selectors import REGISTRY as action_REGISTRY
 import torch as th
 
@@ -16,8 +14,7 @@ class BasicMAC:
 
         self.action_selector = action_REGISTRY[args.action_selector](args)
 
-        self.hidden_states_ind = None
-        self.hidden_states_pairs = None
+        self.hidden_states = None
 
     def select_actions(self, ep_batch, t_ep, t_env, bs=slice(None), test_mode=False):
         # Only select actions for the selected batch elements in bs
@@ -27,12 +24,9 @@ class BasicMAC:
         return chosen_actions
 
     def forward(self, ep_batch, t, test_mode=False):
-        agent_inputs_ind, agent_inputs_pairs = self._build_inputs(ep_batch, t)
+        agent_inputs = self._build_inputs(ep_batch, t)
         avail_actions = ep_batch["avail_actions"][:, t]
-        agent_outs_ind, self.hidden_states_ind = self.agent_ind(agent_inputs_ind, self.hidden_states_ind)
-        agent_outs_pairs, self.hidden_states_pairs = self.agent_pairs(agent_inputs_pairs, self.hidden_states_pairs)
-
-        agent_outs = th.cat((agent_outs_ind, agent_outs_pairs), dim=0)
+        agent_outs, self.hidden_states = self.agent(agent_inputs, self.hidden_states)
 
         # Softmax the agent outputs if they're policy logits
         if self.agent_output_type == "pi_logits":
@@ -60,33 +54,25 @@ class BasicMAC:
         return agent_outs.view(ep_batch.batch_size, self.n_agents, -1)
 
     def init_hidden(self, batch_size):
-        self.hidden_states_ind = self.agent_ind.init_hidden().unsqueeze(0).expand(batch_size, self.n_agents - 4, -1)
-        self.hidden_states_pairs = self.agent_pairs.init_hidden().unsqueeze(0).expand(batch_size, 4, -1)
+        self.hidden_states = self.agent.init_hidden().unsqueeze(0).expand(batch_size, self.n_agents - 1, -1)  # bav
 
     def parameters(self):
-        return self.agent_ind.parameters(), self.agent_pairs.parameters()
+        return self.agent.parameters()
 
     def load_state(self, other_mac):
-        self.agent_ind.load_state_dict(other_mac.agent_ind.state_dict())
-        self.agent_pairs.load_state_dict(other_mac.agent_pairs.state_dict())
+        self.agent.load_state_dict(other_mac.agent.state_dict())
 
     def cuda(self):
-        self.agent_ind.cuda()
-        self.agent_pairs.cuda()
+        self.agent.cuda()
 
     def save_models(self, path):
-        th.save(self.agent_ind.state_dict(), "{}/agent_ind.th".format(path))
-        th.save(self.agent_pairs.state_dict(), "{}/agent_ind.th".format(path))
+        th.save(self.agent.state_dict(), "{}/agent.th".format(path))
 
     def load_models(self, path):
-        self.agent_ind.load_state_dict(
-            th.load("{}/agent_ind.th".format(path), map_location=lambda storage, loc: storage))
-        self.agent_pairs.load_state_dict(
-            th.load("{}/agent_pairs.th".format(path), map_location=lambda storage, loc: storage))
+        self.agent.load_state_dict(th.load("{}/agent.th".format(path), map_location=lambda storage, loc: storage))
 
     def _build_agents(self, input_shape):
-        self.agent_ind = RNNAgentInd(input_shape, self.args)
-        self.agent_pairs = RNNAgentInd(input_shape, self.args)
+        self.agent = agent_REGISTRY[self.args.agent](input_shape, self.args)
 
     def _build_inputs(self, batch, t):
         # Assumes homogenous agents with flat observations.
@@ -103,9 +89,7 @@ class BasicMAC:
             inputs.append(th.eye(self.n_agents, device=batch.device).unsqueeze(0).expand(bs, -1, -1))
 
         inputs = th.cat([x.reshape(bs, self.n_agents, -1) for x in inputs], dim=2)
-        inputs_ind = inputs[:, :self.n_agents - 4, :]
-        inputs_pairs = inputs[:, self.n_agents - 4:, :]
-        return inputs_ind, inputs_pairs
+        return inputs
 
     def _get_input_shape(self, scheme):
         input_shape = scheme["obs"]["vshape"]
