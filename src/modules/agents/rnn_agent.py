@@ -39,7 +39,8 @@ class RNNAgent(nn.Module):
         right_dimensions = partial_tensor[1, :-1, :]
         mixed_dimensions = torch.stack((left_dimensions, right_dimensions), dim=0)
 
-        final_tensor = torch.zeros((bs, self.args.n_agents, tensor.size()[1]))
+        final_tensor = torch.zeros((bs, self.args.n_agents, tensor.size()[1]),
+                                   device='cuda' if torch.cuda.is_available() else 'cpu')
         for i in range(bs):
             final_tensor[i, 0, :] = partial_tensor[i, 0, :]
             final_tensor[i, -1, :] = partial_tensor[i, -1, :]
