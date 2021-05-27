@@ -34,24 +34,21 @@ class RNNAgent(nn.Module):
     def __get_max_values_from_decoded_output(self, tensor):
         bs = math.floor(int(int(tensor.size()[0] / 2) / (self.args.n_agents - 1)))
 
-        partial_tensor = tensor.view(-1, self.args.n_agents - 1, tensor.size()[1])
-        left_dimensions = partial_tensor[0, 1:, :]
-        right_dimensions = partial_tensor[1, :-1, :]
-        mixed_dimensions = torch.stack((left_dimensions, right_dimensions), dim=0)
+        partial_tensor = tensor.view(-1, 2, self.args.n_agents - 1, tensor.size()[1])
+        left_dimensions = partial_tensor[:, 0, 1:, :]
+        right_dimensions = partial_tensor[:, 1, :-1, :]
+        mixed_dimensions = torch.stack((left_dimensions, right_dimensions), dim=1)
 
-        final_tensor = torch.zeros((bs, self.args.n_agents, tensor.size()[1]),
-                                   device='cuda' if torch.cuda.is_available() else 'cpu')
-        for i in range(bs):
-            final_tensor[i, 0, :] = partial_tensor[i, 0, :]
-            final_tensor[i, -1, :] = partial_tensor[i, -1, :]
+        max_indices = torch.max(mixed_dimensions, dim=3)[0].max(dim=1)[1]
 
-            for j in range(mixed_dimensions.size()[1]):
-                if torch.max(mixed_dimensions[0, j, :]) > torch.max(mixed_dimensions[1, j, :]):
-                    final_tensor[i, j + 1, :] = mixed_dimensions[0, j, :]
-                else:
-                    final_tensor[i, j + 1, :] = mixed_dimensions[1, j, :]
+        mixed_dimensions_permuted = mixed_dimensions.permute(0, 2, 1, 3)
+        mixed_dimensions_permuted = mixed_dimensions_permuted.reshape(-1, mixed_dimensions.size()[1], mixed_dimensions.size()[3])
+        mixed_dimensions_permuted = mixed_dimensions_permuted[range(mixed_dimensions_permuted.size()[0]), max_indices.view(-1), :].view(bs, self.args.n_agents - 2, mixed_dimensions.size()[3])
 
-        return final_tensor
+        return torch.cat(
+            (partial_tensor[:, 0, 0, :].reshape(bs, 1, -1), mixed_dimensions_permuted, partial_tensor[:, 1, -1, :].reshape(bs, 1, -1)),
+            dim=1
+        )
 
     @staticmethod
     def __decode_combined_output(tensor):
