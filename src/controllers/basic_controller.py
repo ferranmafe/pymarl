@@ -60,8 +60,8 @@ class BasicMAC:
         return agent_outs.view(ep_batch.batch_size, self.n_agents, -1)
 
     def init_hidden(self, batch_size):
-        self.hidden_states_ind = self.agent_ind.init_hidden().unsqueeze(0).expand(batch_size, self.n_agents - 4, -1)
-        self.hidden_states_pairs = self.agent_pairs.init_hidden().unsqueeze(0).expand(batch_size, 4, -1)
+        self.hidden_states_ind = self.agent_ind.init_hidden().unsqueeze(0).expand(batch_size, self.n_agents - 1, -1)
+        self.hidden_states_pairs = self.agent_pairs.init_hidden().unsqueeze(0).expand(batch_size, 1, -1)
 
     def parameters(self):
         return self.agent_ind.parameters(), self.agent_pairs.parameters()
@@ -103,8 +103,8 @@ class BasicMAC:
             inputs.append(th.eye(self.n_agents, device=batch.device).unsqueeze(0).expand(bs, -1, -1))
 
         inputs = th.cat([x.reshape(bs, self.n_agents, -1) for x in inputs], dim=2)
-        inputs_ind = inputs[:, :self.n_agents - 4, :]
-        inputs_pairs = inputs[:, self.n_agents - 4:, :]
+        inputs_ind = inputs[:, :self.n_agents - 1, :]
+        inputs_pairs = inputs[:, self.n_agents - 1:, :]
         return inputs_ind, inputs_pairs
 
     def _get_input_shape(self, scheme):
